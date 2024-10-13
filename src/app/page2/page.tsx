@@ -1,10 +1,10 @@
 'use client';
 
-import { trpc } from '../../utils/trpc';
+import { api } from '~/trpc/react';
 
 export default function Home() {
-  const generateBeatgrid = trpc.essentia.generateBeatgrid.useMutation();
-
+  // const generateBeatgrid = trpc.essentia.generateBeatgrid.useMutation();
+  const generateBeatgrid = api.essentia.generateBeatgrid.useMutation();
   const handleGenerateBeatgrid = async () => {
     console.log('clicked - generateBeatgrid');
     try {
@@ -19,7 +19,7 @@ export default function Home() {
     <div>
       <h1>Essentia Beatgrid Generator</h1>
       <button onClick={handleGenerateBeatgrid}>Generate Beatgrid</button>
-      {generateBeatgrid.isLoading && <p>Generating beatgrid...</p>}
+      {generateBeatgrid.isPending && <p>Generating beatgrid...</p>}
       {generateBeatgrid.isError && <p>Error: {generateBeatgrid.error.message}</p>}
     </div>
   );
