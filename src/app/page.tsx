@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import WaveSurfer from "wavesurfer.js";
 import { api } from '~/trpc/react';
-
+import { v4 as uuidv4 } from 'uuid';
 
 export default function Home() {
   const [markers, setMarkers] = useState<number[]>([]);
@@ -10,6 +10,8 @@ export default function Home() {
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const waveformRef = useRef<HTMLDivElement>(null);
   const beatgridMutation = api.essentia.generateBeatgrid.useMutation();
+  const uploadMutation = api.essentia.uploadFile.useMutation();
+
   const [audioSource, setAudioSource] = useState<string>('/audio/Humidity-Full.wav');
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
@@ -54,39 +56,60 @@ export default function Home() {
   }, [audioSource]);
 
 
-  const handleUrlInput = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setAudioSource(event.target.value);
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
+    console.log('handleFileUpload', file);
+    if (!file) return;
+  
+    try {
       setAudioFile(file);
-      setAudioSource(URL.createObjectURL(file));
+      setAudioSource(URL.createObjectURL(file)); // This will update the WaveSurfer display
+  
+      const chunkSize = 1024 * 1024; // 1MB chunks
+      const chunks = Math.ceil(file.size / chunkSize);
+      let offset = 0;
+      const uploadId = uuidv4(); // Generate a unique ID for this upload session
+      let uploadResult;
+      let beatgridResult;
+      let chunkResults: {uploadId: string, location: string}[] = [];
+      for (let i = 0; i < chunks; i++) {
+        const chunk = file.slice(offset, offset + chunkSize);
+        const arrayBuffer = await chunk.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const base64 = btoa(
+          uint8Array.reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+  
+        uploadResult = await uploadMutation.mutateAsync({
+          method: 'upload',
+          file: {
+            name: file.name,
+            type: file.type,
+            data: base64,
+            chunk: i,
+            uploadId: uploadId,
+            totalChunks: chunks
+          }
+        });
+        chunkResults.push(uploadResult);
+        offset += chunkSize;
+      }
+  
+      beatgridResult = await beatgridMutation.mutateAsync({
+        chunkResults: chunkResults
+      });
+  
+      // Handle the final result
+      if (beatgridResult?.beats && beatgridResult?.bpm) {
+        setMarkers(beatgridResult.beats);
+        setPredictedBPM(beatgridResult.bpm);
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      // Handle error (e.g., show an error message to the user)
     }
   };
 
-  const handleGenerateBeatgrid = async (method: 'url' | 'upload') => {
-    console.log('handling ', method);
-      try {
-        const mutateAsyncArgs = {
-          method,
-          file: (method === 'upload' && audioFile) ? {
-            type: audioFile.type,
-            name: audioFile.name,
-            data: Buffer.from(await audioFile.arrayBuffer())
-          } : undefined,
-          url: (method === 'url') ? audioSource : undefined
-        };
-
-        console.log('mutateAsyncArgs', mutateAsyncArgs);
-        const {bpm, beats, beats_confidence, beats_intervals} = await beatgridMutation.mutateAsync(mutateAsyncArgs);
-        setMarkers([...beats]);
-        setPredictedBPM(bpm);
-      } catch (error) {
-        console.error('Error generating beatgrid:', error);
-      }
-    };
   const clearMarkers = () => {
     setMarkers([]);
   }
@@ -98,18 +121,13 @@ export default function Home() {
         <h2>Generate beatgrid timestamps for your audio files</h2>
         <h3>Paste a url or upload a file</h3>
         <div className="w-full">
-          <input
-            type="text"
-            placeholder="Paste audio URL here"
-            onChange={handleUrlInput}
-            className="w-full p-2 border rounded mb-2"
-          />
-          <input
-            type="file"
-            accept="audio/*"
-            onChange={handleFileUpload}
-            className="w-full p-2 border rounded mb-4"
-          />
+        
+        <input
+        type="file"
+        accept="audio/*"
+        onChange={handleFileUpload}
+        className="w-full p-2 border rounded mb-4"
+      />
         </div>
         <div className="relative w-full">
           <div id="waveform" ref={waveformRef} className="w-full h-32" />
@@ -125,21 +143,17 @@ export default function Home() {
           {/* Markers: {markers.map((time, index) => (
             <span key={index}>{time.toFixed(2)}s </span>
           ))} */}
-
           <button
-            onClick={()=>handleGenerateBeatgrid('url')}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            Generate Beatgrid from URL
-          </button>
-
-          <button
-            onClick={()=>handleGenerateBeatgrid('upload')}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            Generate Beatgrid from Upload
-          </button>
-
+        onClick={() => {
+          const fileInput = document.querySelector('input[type="file"]');
+          if (fileInput instanceof HTMLElement) {
+            fileInput.click();
+          }
+        }}
+        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+      >
+        Generate Beatgrid from Upload
+      </button>
 
           <button
             onClick={clearMarkers}
