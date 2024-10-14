@@ -7,6 +7,8 @@ def generate_beatgrid(audio_file_path):
         import numpy as np
         print('generating beatgrid from file:', audio_file_path, file=sys.stderr)
         # Load Audio
+
+        
         audio = es.MonoLoader(filename=audio_file_path)() 
 
         # Compute beat positions and BPM.

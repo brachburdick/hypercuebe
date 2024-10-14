@@ -26,14 +26,18 @@ export const essentiaRouter = createTRPCRouter({
         // Download the file from Supabase storage
         const { data, error } = await ctx.supabase.storage.from('songs').download(input.songName);
         if (error) throw error;
-  
+
+        // convert data to buffer
+        const arrayBuffer = await data.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
         // Create a temporary file
         const tempDir = tmpdir();
         const tempFilePath = path.join(tempDir, input.songName);
   
         try {
           // Write the file to the temporary location
-          await writeFile(tempFilePath, data.toString());
+          await writeFile(tempFilePath, buffer);
   
           // Execute the Python script
           console.log('generateBeatgrid endpoint');
@@ -45,7 +49,8 @@ export const essentiaRouter = createTRPCRouter({
           
           const command = `${pythonPath} ${pythonScriptPath} "${tempFilePath}"`;
           const { stdout, stderr } = await execAsync(command);
-          
+            console.log('stdout', stdout);
+            console.log('stderr', stderr);
           if (stderr && stderr.trim() !== '') {
             console.warn('Python script stderr (non-empty):', stderr);
           }
