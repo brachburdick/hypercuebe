@@ -9,7 +9,7 @@ import { createClient } from "~/utils/supabase/component"
 
 export default function Home() {
   const supabase = createClient();
-  const {data:songData} = api.songs.getAllSongs.useQuery();
+  const { data: songData } = api.songs.getAllSongs.useQuery();
   const [currentSongName, setCurrentSongName] = useState<string>('Select a song');
   const [currentSongUrl, setCurrentSongUrl] = useState<string>('');
   const [markers, setMarkers] = useState<number[]>([]);
@@ -22,18 +22,28 @@ export default function Home() {
   const [audioSource, setAudioSource] = useState<string>('/audio/Humidity-Full.wav');
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
+  //initialize wavesurfer
+  const initWaveSurfer = (url: string) => {
+    if (wavesurferRef.current) {
+      wavesurferRef.current.destroy();
+    }
+
+    const wavesurfer = WaveSurfer.create({
+      container: '#waveform',
+      waveColor: '#4F4A85',
+      progressColor: '#383351',
+      url: url,
+    });
+
+    wavesurferRef.current = wavesurfer;
+
+    return wavesurfer;
+  };
 
   useEffect(() => {
-        console.log(`currentSongUrl: ${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/songs/${currentSongName}`);
+    console.log(`currentSongUrl: ${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/songs/${currentSongName}`);
 
- 
-  const wavesurfer = WaveSurfer.create({
-    container: '#waveform',
-    waveColor: '#4F4A85',
-    progressColor: '#383351',
-    url: currentSongUrl,
-  });
-    wavesurferRef.current = wavesurfer;
+      const wavesurfer = initWaveSurfer(currentSongUrl);
 
     const handleKeyPress = (event: KeyboardEvent) => {
       if (event.code === 'Space') {
@@ -62,7 +72,7 @@ export default function Home() {
       window.removeEventListener('keydown', handleKeyPress);
       waveformRef.current?.removeEventListener('click', handleClick);
     };
-  }, []);
+  }, [currentSongUrl]);
 
 
 
@@ -78,15 +88,14 @@ export default function Home() {
 
   const handleSongSelection = async (song: FileObject) => {
     setCurrentSongName(song.name);
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/songs/${song.name}`;
-    
+
     try {
       const { data, error } = await supabase.storage
         .from('songs')
         .download(song.name);
-      
+
       if (error) throw error;
-      
+
       const blob = new Blob([data], { type: 'audio/mpeg' });
       const objectUrl = URL.createObjectURL(blob);
       setCurrentSongUrl(objectUrl);
@@ -97,7 +106,7 @@ export default function Home() {
   }
   const handleGenerateBeatgrid = async (event: React.ChangeEvent<HTMLInputElement>) => {
     console.log('clicked - generateBeatgrid');
-   
+
   };
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
@@ -105,16 +114,16 @@ export default function Home() {
         <h1>HyperCuebe</h1>
         <h4>Select a song/snippet in our db to generate cues</h4>
         <div className="w-full">
-        
+
 
         </div>
         <div className="relative w-full">
           <div id="waveform" ref={waveformRef} className="w-full h-32" />
           {markers.map((time, index) => (
-            <div 
-              key={index} 
-              style={{left: `${(time / (wavesurferRef.current?.getDuration() || 1)) * 100}%`}}
-              className="absolute top-0 w-px h-full bg-red-500 z-10 transition-all duration-200 ease-in-out hover:scale-[1.2] hover:bg-red-700" 
+            <div
+              key={index}
+              style={{ left: `${(time / (wavesurferRef.current?.getDuration() || 1)) * 100}%` }}
+              className="absolute top-0 w-px h-full bg-red-500 z-10 transition-all duration-200 ease-in-out hover:scale-[1.2] hover:bg-red-700"
             />
           ))}
         </div>
@@ -123,25 +132,25 @@ export default function Home() {
             <span key={index}>{time.toFixed(2)}s </span>
           ))} */}
           <button
-        onClick={() => {
-          const fileInput = document.querySelector('input[type="file"]');
-          if (fileInput instanceof HTMLElement) {
-            fileInput.click();
-          }
-        }}
-        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-      >
-        Generate Beatgrid from Upload
-      </button>
+            onClick={() => {
+              const fileInput = document.querySelector('input[type="file"]');
+              if (fileInput instanceof HTMLElement) {
+                fileInput.click();
+              }
+            }}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            Generate Beatgrid from Upload
+          </button>
 
           <button
             onClick={clearMarkers}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
             Clear grid markers
-           </button>
-          <SongSelectionDropdown songs={songData || []} currentSongName={currentSongName} chooseSong={handleSongSelection}/>
-         
+          </button>
+          <SongSelectionDropdown songs={songData || []} currentSongName={currentSongName} chooseSong={handleSongSelection} />
+
 
         </div>
       </main>
