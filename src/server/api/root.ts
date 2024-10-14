@@ -3,7 +3,7 @@ import { essentiaRouter } from "./routers/essentia";
 import { songsRouter } from "./routers/songs";
 import { type createTRPCContext } from "./trpc";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
-
+import { featureExtractionRouter } from "./routers/featureExtraction";
 
 /**
  * This is the primary router for your server.
@@ -13,6 +13,7 @@ import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 export const appRouter = createTRPCRouter({
   essentia: essentiaRouter,
   songs: songsRouter,
+  featureExtraction: featureExtractionRouter,
 });
 
 // export type definition of API

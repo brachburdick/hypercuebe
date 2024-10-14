@@ -49,8 +49,6 @@ export const essentiaRouter = createTRPCRouter({
           
           const command = `${pythonPath} ${pythonScriptPath} "${tempFilePath}"`;
           const { stdout, stderr } = await execAsync(command);
-            console.log('stdout', stdout);
-            console.log('stderr', stderr);
           if (stderr && stderr.trim() !== '') {
             console.warn('Python script stderr (non-empty):', stderr);
           }
@@ -209,4 +207,6 @@ export const essentiaRouter = createTRPCRouter({
 
         }),
     });
-  
+
+
+

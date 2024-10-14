@@ -9,18 +9,22 @@ import { createClient } from "~/utils/supabase/component"
 
 export default function Home() {
   const supabase = createClient();
+
   const { data: songData } = api.songs.getAllSongs.useQuery();
+  const beatgridMutation = api.essentia.generateBeatgrid.useMutation();
+  const featureExtractionMutation = api.featureExtraction.extractFeatures.useMutation();
+
   const [currentSongName, setCurrentSongName] = useState<string>('Select a song');
   const [currentSongUrl, setCurrentSongUrl] = useState<string>('');
   const [markers, setMarkers] = useState<number[]>([]);
   const [predictedBPM, setPredictedBPM] = useState<number | null>(null);
-  const wavesurferRef = useRef<WaveSurfer | null>(null);
-  const waveformRef = useRef<HTMLDivElement>(null);
-  const beatgridMutation = api.essentia.generateBeatgrid.useMutation();
-  // const uploadMutation = api.essentia.uploadFile.useMutation();
-
   const [audioSource, setAudioSource] = useState<string>('/audio/Humidity-Full.wav');
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [featureData, setFeatureData] = useState<any>(null);
+
+  const wavesurferRef = useRef<WaveSurfer | null>(null);
+  const waveformRef = useRef<HTMLDivElement>(null);
+
 
   //initialize wavesurfer
   const initWaveSurfer = (url: string) => {
@@ -79,12 +83,7 @@ export default function Home() {
   const clearMarkers = () => {
     setMarkers([]);
   }
-  // const handleSongSelection = (song: FileObject) => {
-  //   setCurrentSongName(song.name);
-  //   setCurrentSongUrl(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/songs/${song.name}`);
-  //   console.log(`currentSongUrl: ${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/songs/${song.name}`);
 
-  // }
 
   const handleSongSelection = async (song: FileObject) => {
     setCurrentSongName(song.name);
@@ -110,10 +109,17 @@ export default function Home() {
    console.log(beats);
    setMarkers(beats);
   };
+
+  const extractFeatures = async () => {
+    const featureResponse = await featureExtractionMutation.mutateAsync({ songName: currentSongName });
+    console.log('Song features:', featureResponse);
+    setFeatureData(featureResponse);
+  };
+
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start w-full max-w-3xl">
-        <h1>HyperCuebe</h1>
+        <h1>sCue</h1>
         <h4>Select a song/snippet in our db to generate cues</h4>
         <div className="w-full">
 
@@ -144,7 +150,17 @@ export default function Home() {
             onClick={clearMarkers}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
+            
             Clear grid markers
+          </button>
+
+
+          <button
+            onClick={extractFeatures}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            
+            Extract Features
           </button>
           <SongSelectionDropdown songs={songData || []} currentSongName={currentSongName} chooseSong={handleSongSelection} />
 
