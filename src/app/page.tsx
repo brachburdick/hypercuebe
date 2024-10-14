@@ -4,8 +4,14 @@ import WaveSurfer from "wavesurfer.js";
 import { api } from '~/trpc/react';
 import { v4 as uuidv4 } from 'uuid';
 import SongSelectionDropdown from './_components/songSelectionDropdown';
+import { FileObject } from "@supabase/storage-js";
+import { createClient } from "~/utils/supabase/component"
+
 export default function Home() {
-  const songs = api.songs.getAllSongs.useQuery();
+  const supabase = createClient();
+  const {data:songData} = api.songs.getAllSongs.useQuery();
+  const [currentSongName, setCurrentSongName] = useState<string>('Select a song');
+  const [currentSongUrl, setCurrentSongUrl] = useState<string>('');
   const [markers, setMarkers] = useState<number[]>([]);
   const [predictedBPM, setPredictedBPM] = useState<number | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
@@ -18,13 +24,15 @@ export default function Home() {
 
 
   useEffect(() => {
-    const wavesurfer = WaveSurfer.create({
-      container: '#waveform',
-      waveColor: '#4F4A85',
-      progressColor: '#383351',
-      url: '/audio/Humidity-Full.wav',
-    });
+        console.log(`currentSongUrl: ${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/songs/${currentSongName}`);
 
+ 
+  const wavesurfer = WaveSurfer.create({
+    container: '#waveform',
+    waveColor: '#4F4A85',
+    progressColor: '#383351',
+    url: currentSongUrl,
+  });
     wavesurferRef.current = wavesurfer;
 
     const handleKeyPress = (event: KeyboardEvent) => {
@@ -60,6 +68,32 @@ export default function Home() {
 
   const clearMarkers = () => {
     setMarkers([]);
+  }
+  // const handleSongSelection = (song: FileObject) => {
+  //   setCurrentSongName(song.name);
+  //   setCurrentSongUrl(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/songs/${song.name}`);
+  //   console.log(`currentSongUrl: ${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/songs/${song.name}`);
+
+  // }
+
+  const handleSongSelection = async (song: FileObject) => {
+    setCurrentSongName(song.name);
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/songs/${song.name}`;
+    
+    try {
+      const { data, error } = await supabase.storage
+        .from('songs')
+        .download(song.name);
+      
+      if (error) throw error;
+      
+      const blob = new Blob([data], { type: 'audio/mpeg' });
+      const objectUrl = URL.createObjectURL(blob);
+      setCurrentSongUrl(objectUrl);
+    } catch (error) {
+      console.error('Error downloading the song:', error);
+      // Handle the error appropriately
+    }
   }
   const handleGenerateBeatgrid = async (event: React.ChangeEvent<HTMLInputElement>) => {
     console.log('clicked - generateBeatgrid');
@@ -104,9 +138,10 @@ export default function Home() {
             onClick={clearMarkers}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
-            Clear Markers
-          </button>
-          {/* <SongSelectionDropdown songs={songs.data || []} /> */}
+            Clear grid markers
+           </button>
+          <SongSelectionDropdown songs={songData || []} currentSongName={currentSongName} chooseSong={handleSongSelection}/>
+         
 
         </div>
       </main>

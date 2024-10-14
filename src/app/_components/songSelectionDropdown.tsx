@@ -1,14 +1,17 @@
 import { useState } from "react";
+import { FileObject } from "@supabase/storage-js";
 
-const SongSelectionDropdown = ({ songs }: { songs: { id: string; title: string }[] }) => {
+
+const SongSelectionDropdown = ({ songs, currentSongName, chooseSong }: { songs: FileObject[], currentSongName: string, chooseSong: (song: FileObject) => void }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
   };
 
-  const handleSongSelection = (song: { id: string; title: string }) => {
-    console.log(`Selected song: ${song.title}`);
+  const handleSongSelection = async (song: FileObject) => {
+    console.log(`Selected song: ${song.name}`);
+    await chooseSong(song);
     setIsOpen(false);
   };
 
@@ -23,7 +26,7 @@ const SongSelectionDropdown = ({ songs }: { songs: { id: string; title: string }
           aria-expanded={isOpen}
           aria-haspopup="true"
         >
-          Select song
+          {currentSongName}
           <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" data-slot="icon">
             <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
           </svg>
@@ -42,7 +45,7 @@ const SongSelectionDropdown = ({ songs }: { songs: { id: string; title: string }
                 tabIndex={-1}
                 onClick={() => handleSongSelection(song)}
               >
-                {song.title}
+                {song.name}
               </a>
             ))}
           </div>
