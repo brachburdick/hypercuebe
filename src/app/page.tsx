@@ -104,9 +104,10 @@ export default function Home() {
       // Handle the error appropriately
     }
   }
-  const handleGenerateBeatgrid = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('clicked - generateBeatgrid');
-
+  const handleGenerateBeatgrid = async () => {
+   const beatgrid = await beatgridMutation.mutateAsync({ songName: currentSongName });
+   console.log(beatgrid);
+   setMarkers(beatgrid);
   };
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
@@ -132,12 +133,7 @@ export default function Home() {
             <span key={index}>{time.toFixed(2)}s </span>
           ))} */}
           <button
-            onClick={() => {
-              const fileInput = document.querySelector('input[type="file"]');
-              if (fileInput instanceof HTMLElement) {
-                fileInput.click();
-              }
-            }}
+            onClick={handleGenerateBeatgrid}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
             Generate Beatgrid from Upload

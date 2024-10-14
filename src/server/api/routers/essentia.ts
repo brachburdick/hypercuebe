@@ -9,6 +9,9 @@ import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from '@trpc/server';
 import { v4 as uuidv4 } from 'uuid';
 import { pipeline } from 'stream/promises';
+import createClient from '~/utils/supabase/api';
+import { writeFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
 
 const execAsync = promisify(exec);
 //https://on.soundcloud.com/nLdvpuk4hQnHKar98
@@ -17,42 +20,55 @@ export const essentiaRouter = createTRPCRouter({
 
     generateBeatgrid: publicProcedure
     .input(z.object({
-      filePath: z.string()
+      songName: z.string(),
       }))
-    .mutation(async ({ input }) => {
-        // Execute the python script
-        console.log('generateBeatgrid endpoint');
-        const fullFilePath = path.join(process.cwd(), input.filePath);
-        const pythonScriptPath = path.join(process.cwd(), 'scripts', 'GenerateBeatgrid.py');
-        const venvPath = path.join(process.cwd(), 'scripts', 'venv');
-        const pythonPath = process.platform === 'win32'
-          ? path.join(venvPath, 'Scripts', 'python.exe')
-          : path.join(venvPath, 'bin', 'python');
-      
-        const command = `${pythonPath} ${pythonScriptPath} "${fullFilePath}"`;
-        try{
+      .mutation(async ({ input, ctx }) => {
+        // Download the file from Supabase storage
+        const { data, error } = await ctx.supabase.storage.from('songs').download(input.songName);
+        if (error) throw error;
+  
+        // Create a temporary file
+        const tempDir = tmpdir();
+        const tempFilePath = path.join(tempDir, input.songName);
+  
+        try {
+          // Write the file to the temporary location
+          await writeFile(tempFilePath, data.toString());
+  
+          // Execute the Python script
+          console.log('generateBeatgrid endpoint');
+          const pythonScriptPath = path.join(process.cwd(), 'scripts', 'GenerateBeatgrid.py');
+          const venvPath = path.join(process.cwd(), 'scripts', 'venv');
+          const pythonPath = process.platform === 'win32'
+            ? path.join(venvPath, 'Scripts', 'python.exe')
+            : path.join(venvPath, 'bin', 'python');
+          
+          const command = `${pythonPath} ${pythonScriptPath} "${tempFilePath}"`;
           const { stdout, stderr } = await execAsync(command);
-        
-        if (stderr && stderr.trim() !== '') {
-          console.warn('Python script stderr (non-empty):', stderr);
-        }
-    
-        if (stdout && stdout.trim() !== '') {
-          try {
-            return JSON.parse(stdout);
-          } catch (parseError) {
-            console.error('Error parsing stdout as JSON:', parseError);
-            throw new Error('Failed to parse beatgrid data');
+          
+          if (stderr && stderr.trim() !== '') {
+            console.warn('Python script stderr (non-empty):', stderr);
           }
-        } else {
-          console.error('stdout is empty');
-          throw new Error('No data returned from Python script');
+      
+          if (stdout && stdout.trim() !== '') {
+            try {
+              return JSON.parse(stdout);
+            } catch (parseError) {
+              console.error('Error parsing stdout as JSON:', parseError);
+              throw new Error('Failed to parse beatgrid data');
+            }
+          } else {
+            console.error('stdout is empty');
+            throw new Error('No data returned from Python script');
+          }
+        } catch (error) {
+          console.error('Error processing file or executing Python script:', error);
+          throw new Error('Failed to generate beatgrid');
+        } finally {
+          // Clean up: remove the temporary file
+          await unlink(tempFilePath).catch(console.error);
         }
-      } catch (error) {
-        console.error('Error processing file or executing Python script:', error);
-        throw new Error('Failed to generate beatgrid');
-      }
-    }),
+      }),
 
     generateBeatgridArchived: publicProcedure
       .input(z.object({

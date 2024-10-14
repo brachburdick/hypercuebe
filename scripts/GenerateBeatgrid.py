@@ -32,6 +32,6 @@ def generate_beatgrid(audio_file_path):
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         result = generate_beatgrid(sys.argv[1])
-        print(result)  # This is what will be captured by the Node.js exec
+        print(json.dumps(result))  # This is what will be captured by the Node.js exec
     else:
         print(json.dumps({"error": "No audio file path provided"}))
