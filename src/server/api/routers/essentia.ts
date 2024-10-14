@@ -14,7 +14,47 @@ const execAsync = promisify(exec);
 //https://on.soundcloud.com/nLdvpuk4hQnHKar98
 
 export const essentiaRouter = createTRPCRouter({
+
     generateBeatgrid: publicProcedure
+    .input(z.object({
+      filePath: z.string()
+      }))
+    .mutation(async ({ input }) => {
+        // Execute the python script
+        console.log('generateBeatgrid endpoint');
+        const fullFilePath = path.join(process.cwd(), input.filePath);
+        const pythonScriptPath = path.join(process.cwd(), 'scripts', 'GenerateBeatgrid.py');
+        const venvPath = path.join(process.cwd(), 'scripts', 'venv');
+        const pythonPath = process.platform === 'win32'
+          ? path.join(venvPath, 'Scripts', 'python.exe')
+          : path.join(venvPath, 'bin', 'python');
+      
+        const command = `${pythonPath} ${pythonScriptPath} "${fullFilePath}"`;
+        try{
+          const { stdout, stderr } = await execAsync(command);
+        
+        if (stderr && stderr.trim() !== '') {
+          console.warn('Python script stderr (non-empty):', stderr);
+        }
+    
+        if (stdout && stdout.trim() !== '') {
+          try {
+            return JSON.parse(stdout);
+          } catch (parseError) {
+            console.error('Error parsing stdout as JSON:', parseError);
+            throw new Error('Failed to parse beatgrid data');
+          }
+        } else {
+          console.error('stdout is empty');
+          throw new Error('No data returned from Python script');
+        }
+      } catch (error) {
+        console.error('Error processing file or executing Python script:', error);
+        throw new Error('Failed to generate beatgrid');
+      }
+    }),
+
+    generateBeatgridArchived: publicProcedure
       .input(z.object({
         chunkResults: z.array(z.object({
           uploadId: z.string(),

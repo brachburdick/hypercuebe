@@ -6,11 +6,13 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
-import { initTRPC } from "@trpc/server";
+import {  TRPCError, initTRPC } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
+import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 import { db } from "~/server/db";
+import { createClient } from "~/utils/supabase/static-props";
 
 /**
  * 1. CONTEXT
@@ -24,9 +26,14 @@ import { db } from "~/server/db";
  *
  * @see https://trpc.io/docs/server/context
  */
-export const createTRPCContext = async (opts: { headers: Headers }) => {
+export const createTRPCContext = async (opts: CreateNextContextOptions | { headers: Headers }) => {
+  
+  const supabase = createClient();
+
+
   return {
     db,
+    supabase,
     ...opts,
   };
 };
